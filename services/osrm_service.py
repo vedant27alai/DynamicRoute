@@ -13,8 +13,8 @@ def get_optimal_route(origin, destination):
         route_data = response.json()
         route = route_data['routes'][0]
         return {
-            "distance": route['distance'], #/ 1000,  # Convert distance to kilometers
-            "duration": route['duration'], # / 60,    # Convert duration to minutes
+            "distance": route['distance'], 
+            "duration": route['duration'], 
             "geometry": route['geometry']
         }
     else:
