@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Route Optimization</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="C:\Users\vedan\OneDrive\Desktop\language\PROJECT\Dynamic Routing System\styles.css" />
+
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .weather-info {
+            margin-top: 20px;
+        }
+        .weather-info h3 {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dynamic Route Optimization and Emission Reduction</h1>
+    <form id="routeForm">
+        <label>Origin (Latitude, Longitude):</label>
+        <input type="text" id="origin" placeholder="e.g., 19.076,72.8777" required><br>
+        <label>Destination (Latitude, Longitude):</label>
+        <input type="text" id="destination" placeholder="e.g., 28.6139,77.2090" required><br>
+        <label>Vehicle Type:</label>
+        <select id="vehicleType">
+            <option value="car">Car</option>
+            <option value="motorcycle">Motorcycle</option>
+            <option value="truck">Truck</option>
+        </select><br>
+        <label>Fuel Type:</label>
+        <select id="fuelType">
+            <option value="petrol">Petrol</option>
+            <option value="diesel">Diesel</option>
+            <option value="electric">Electric</option>
+        </select><br>
+        <label>Fuel Efficiency (km/l):</label>
+        <input type="number" id="fuelEfficiency" placeholder="e.g., 15" required><br>
+        <button type="submit">Calculate Route</button>
+    </form>
+
+    <div id="output"></div>
+    <div class="weather-info">
+        <h3>Weather Info</h3>
+        <div id="originWeather"></div>
+        <div id="destinationWeather"></div>
+    </div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const map = L.map('map').setView([20.5937, 78.9629], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let routeLayer;
+
+        document.getElementById('routeForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const origin = document.getElementById('origin').value.split(',').map(Number);
+            const destination = document.getElementById('destination').value.split(',').map(Number);
+            const vehicleType = document.getElementById('vehicleType').value;
+            const fuelType = document.getElementById('fuelType').value;
+            const fuelEfficiency = parseFloat(document.getElementById('fuelEfficiency').value);
+
+            try {
+                const response = await axios.post('/route', {
+                    origin,
+                    destination,
+                    vehicle_type: vehicleType,
+                    fuel_type: fuelType,
+                    fuel_efficiency: fuelEfficiency
+                });
+
+                const data = response.data;
+
+                const output = `
+                    <h3>Route Details</h3>
+                    <p>Distance: ${(data.route.distance / 1000).toFixed(2)} km</p>
+                    <p>Duration: ${(data.route.duration / 60).toFixed(2)} minutes</p>
+                    <p>Emissions: ${data.emissions.emissions.toFixed(2)} ${data.emissions.unit}</p>
+                `;
+                document.getElementById('output').innerHTML = output;
+
+                const originWeather = data.origin_weather || {};
+                const destinationWeather = data.destination_weather || {};
+
+                // Only display weather information if the data is available
+                if (originWeather.location && originWeather.location.name) {
+                    document.getElementById('originWeather').innerHTML = `
+                        <p><strong>Origin:</strong> ${originWeather.location.name}</p>
+                        <p>Temperature: ${originWeather.temperature || 'N/A'}°C</p>
+                        <p>Condition: ${originWeather.condition || 'N/A'}</p>
+                    `;
+                } else {
+                    document.getElementById('originWeather').innerHTML = `<p>Weather data for origin not available.</p>`;
+                }
+
+                if (destinationWeather.location && destinationWeather.location.name) {
+                    document.getElementById('destinationWeather').innerHTML = `
+                        <p><strong>Destination:</strong> ${destinationWeather.location.name}</p>
+                        <p>Temperature: ${destinationWeather.temperature || 'N/A'}°C</p>
+                        <p>Condition: ${destinationWeather.condition || 'N/A'}</p>
+                    `;
+                } else {
+                    document.getElementById('destinationWeather').innerHTML = `<p>Weather data for destination not available.</p>`;
+                }
+
+
+                if (routeLayer) {
+                    map.removeLayer(routeLayer);
+                }
+                routeLayer = L.geoJSON({
+                    type: 'LineString',
+                    coordinates: data.route.geometry.coordinates
+                }).addTo(map);
+                map.fitBounds(routeLayer.getBounds());
+            } catch (error) {
+                console.error(error);
+                document.getElementById('output').innerHTML = "<p>Error calculating route.</p>";
+            }
+        });
+    </script>
+</body>
+</html>
